@@ -1,0 +1,234 @@
+#!/bin/bash
+
+# Ensure we are in the git root
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# Timestamp for report directory
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+REPORT_DIR=".ai-check/reports/${TIMESTAMP}"
+mkdir -p "$REPORT_DIR"
+
+# Determine context (Staged diff or specific file)
+CONTEXT_ARG="$1"
+DIFF_CONTENT=""
+TARGET_FILE=""
+
+if [[ "$CONTEXT_ARG" == *"파일"* && "$CONTEXT_ARG" == *"리뷰"* ]]; then
+    # Extract filename from argument like "파일 src/main.py 리뷰"
+    # Assuming format: "파일 <filepath> 리뷰"
+    TARGET_FILE=$(echo "$CONTEXT_ARG" | sed -E 's/파일 (.*) 리뷰/\1/')
+    if [ -f "$TARGET_FILE" ]; then
+        echo "Validating specific file: $TARGET_FILE"
+        DIFF_CONTENT=$(cat "$TARGET_FILE")
+    else
+        echo "Error: File $TARGET_FILE not found."
+        exit 1
+    fi
+else
+    # Default to staged diff, fallback to working tree diff
+    echo "Validating staged changes..."
+    if git diff --cached --quiet; then
+        echo "No staged changes found. Checking working tree..."
+        DIFF_CONTENT=$(git diff)
+    else
+        DIFF_CONTENT=$(git diff --cached)
+    fi
+    
+    if [ -z "$DIFF_CONTENT" ]; then
+        echo "No changes to validate."
+        exit 0
+    fi
+fi
+
+
+# Prepare prompt content
+PROMPT_TEMPLATE="${REPORT_DIR}/../prompts/default_review.md"
+# If template doesn't exist, create it (for first run or fresh clones)
+if [ ! -f "$PROMPT_TEMPLATE" ]; then
+    mkdir -p "$(dirname "$PROMPT_TEMPLATE")"
+    cat <<EOF > "$PROMPT_TEMPLATE"
+You are an expert code reviewer. Please review the following code changes/content.
+
+**Analysis Criteria:**
+1. **Correctness**: Identify any potential bugs or logic errors.
+2. **Style**: Check for adherence to best practices and code style.
+3. **Security**: Flag any potential security vulnerabilities.
+4. **Performance**: Suggest optimization opportunities.
+
+**Output Format:**
+- Start with a **Concise Summary**.
+- Provide **Actionable Items** for each issue found.
+- If the code looks good, explicitly state **"LGTM"** (Looks Good To Me).
+
+**Context provided by user:**
+{{CONTEXT_ARG}}
+
+**Code to Review:**
+\`\`\`
+{{DIFF_CONTENT}}
+\`\`\`
+EOF
+fi
+
+PROMPT_FILE="${REPORT_DIR}/prompt.txt"
+
+# Read template and replace placeholders manually (safe for large content)
+# We use perl for safer multi-line replacement if available, or simple sed
+# But simplest bash way for large content is to build the file:
+
+# 1. Read template up to {{CONTEXT_ARG}}
+# 2. Insert Context
+# 3. Read template up to {{DIFF_CONTENT}}
+# 4. Insert Diff
+# 5. Read rest
+
+# Simple sed approach (might fail on special chars in context/diff with complex escaping)
+# Better approach: Construct the prompt file directly using variables
+# We will use the template file as a reference but for robustness in bash, we'll reconstruct it with variables here
+# unless we implement a proper template engine.
+# However, to support user editing the template, we must respect the template file content.
+
+# Let's use a simple python oneliner if available, or just cat for now
+if command -v python3 &> /dev/null; then
+    python3 -c "
+import sys
+import os
+
+template_path = '$PROMPT_TEMPLATE'
+context_arg = os.environ.get('CONTEXT_ARG', '')
+diff_content = os.environ.get('DIFF_CONTENT', '')
+
+try:
+    with open(template_path, 'r') as f:
+        template = f.read()
+    
+    # Simple replacement
+    output = template.replace('{{CONTEXT_ARG}}', context_arg).replace('{{DIFF_CONTENT}}', diff_content)
+    
+    with open('$PROMPT_FILE', 'w') as f:
+        f.write(output)
+except Exception as e:
+    sys.exit(1)
+"
+    # If python failed (e.g. file not found), fallback to cat
+    if [ $? -ne 0 ]; then
+        echo "Error utilizing python for template. Using fallback."
+        cat <<EOF > "$PROMPT_FILE"
+Review Context: $CONTEXT_ARG
+Code:
+$DIFF_CONTENT
+EOF
+    fi
+else
+    # Fallback if no python
+    cat <<EOF > "$PROMPT_FILE"
+Review Context: $CONTEXT_ARG
+Code:
+$DIFF_CONTENT
+EOF
+fi
+
+echo "Prompt generated at $PROMPT_FILE"
+
+# Calculate Prompt Hash for Traceability
+if command -v shasum &> /dev/null; then
+    PROMPT_HASH=$(shasum -a 256 "$PROMPT_FILE" | awk '{print $1}')
+elif command -v sha256sum &> /dev/null; then
+    PROMPT_HASH=$(sha256sum "$PROMPT_FILE" | awk '{print $1}')
+else
+    PROMPT_HASH=$(md5 -q "$PROMPT_FILE") # macOS fallback
+fi
+
+# Run Claude and Codex in parallel
+echo "Running Claude and Codex..."
+
+# Claude execution (assuming claude -p acceptable)
+# Since the prompt might be large, we'll cat it into a variable or pass via file if supported.
+# CLI typically accepts prompt string.
+PROMPT_CONTENT=$(cat "$PROMPT_FILE")
+
+(claude -p "$PROMPT_CONTENT" > "${REPORT_DIR}/claude.txt" 2>&1 || echo "Claude failed" > "${REPORT_DIR}/claude_error.txt") &
+CLAUDE_PID=$!
+
+# Codex execution (assuming codex exec - reads from stdin)
+(echo "$PROMPT_CONTENT" | codex exec - > "${REPORT_DIR}/codex.txt" 2>&1 || echo "Codex failed" > "${REPORT_DIR}/codex_error.txt") &
+CODEX_PID=$!
+
+# Gemini execution
+(echo "$PROMPT_CONTENT" | gemini -o text > "${REPORT_DIR}/gemini.txt" 2>&1 || echo "Gemini failed" > "${REPORT_DIR}/gemini_error.txt") &
+GEMINI_PID=$!
+
+wait $CLAUDE_PID
+wait $CODEX_PID
+wait $GEMINI_PID
+
+# Check for failures and warn
+CLAUDE_STATUS=$?
+CODEX_STATUS=$?
+WARNINGS=""
+
+if [ -f "${REPORT_DIR}/claude_error.txt" ]; then
+    WARNINGS="${WARNINGS}\n- Claude execution failed."
+fi
+if [ -f "${REPORT_DIR}/codex_error.txt" ]; then
+    WARNINGS="${WARNINGS}\n- Codex execution failed."
+fi
+if [ -f "${REPORT_DIR}/gemini_error.txt" ]; then
+    WARNINGS="${WARNINGS}\n- Gemini execution failed."
+fi
+
+# Run Validators if environment variables are set
+VALIDATOR_FAIL=0
+if [ -n "$LINT_CMD" ]; then
+    echo "Running Lint: $LINT_CMD"
+    eval "$LINT_CMD" || VALIDATOR_FAIL=1
+fi
+if [ -n "$TYPECHECK_CMD" ]; then
+    echo "Running Typecheck: $TYPECHECK_CMD"
+    eval "$TYPECHECK_CMD" || VALIDATOR_FAIL=1
+fi
+if [ -n "$TEST_CMD" ]; then
+    echo "Running Tests: $TEST_CMD"
+    eval "$TEST_CMD" || VALIDATOR_FAIL=1
+fi
+
+if [ $VALIDATOR_FAIL -ne 0 ]; then
+    echo "Validator failed."
+    exit 1
+fi
+
+# Generate Report MD
+REPORT_MD="${REPORT_DIR}/report.md"
+cat <<EOF > "$REPORT_MD"
+# AI Code Review Report
+**Date:** $(date)
+**Context:** $CONTEXT_ARG
+**Prompt Hash:** \`$PROMPT_HASH\`
+
+## Status
+$WARNINGS
+
+## Claude Response
+$(cat "${REPORT_DIR}/claude.txt" 2>/dev/null || echo "No output")
+
+---
+
+## Codex Response
+$(cat "${REPORT_DIR}/codex.txt" 2>/dev/null || echo "No output")
+
+---
+
+## Gemini Response
+$(cat "${REPORT_DIR}/gemini.txt" 2>/dev/null || echo "No output")
+EOF
+
+echo "Report generated: $REPORT_MD"
+
+# Automatically open the report in VS Code (or default editor)
+if command -v code &> /dev/null; then
+    code "$REPORT_MD"
+else
+    open "$REPORT_MD"
+fi
+
+exit 0
