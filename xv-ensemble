@@ -20,7 +20,7 @@ REPORT_CONTENT=$(cat "$REPORT_FILE")
 REPORT_DIR=$(dirname "$REPORT_FILE")
 
 # Prepare synthesis prompt
-PROMPT_TEMPLATE=".ai-check/prompts/synthesis.md"
+PROMPT_TEMPLATE=".ai-check/prompts/ensemble.md"
 if [ ! -f "$PROMPT_TEMPLATE" ]; then
     echo "Error: Synthesis prompt template not found at $PROMPT_TEMPLATE"
     exit 1

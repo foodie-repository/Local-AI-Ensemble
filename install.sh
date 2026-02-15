@@ -19,7 +19,7 @@ chmod +x "$INSTALL_DIR/xv-local" "$INSTALL_DIR/xv-ensemble"
 # 3. Copy Templates
 echo "- Installing templates to $TEMPLATE_DIR..."
 cp templates/default_review.md "$TEMPLATE_DIR/"
-cp templates/synthesis.md "$TEMPLATE_DIR/"
+cp templates/ensemble.md "$TEMPLATE_DIR/"
 
 # 4. Patch Scripts to Use Global Template Path
 # (Simple sed replacement to point to the installed template location)
