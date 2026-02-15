@@ -19,17 +19,17 @@ fi
 REPORT_CONTENT=$(cat "$REPORT_FILE")
 REPORT_DIR=$(dirname "$REPORT_FILE")
 
-# Prepare synthesis prompt
+# Prepare ensemble prompt
 PROMPT_TEMPLATE=".ai-check/prompts/ensemble.md"
 if [ ! -f "$PROMPT_TEMPLATE" ]; then
-    echo "Error: Synthesis prompt template not found at $PROMPT_TEMPLATE"
+    echo "Error: Ensemble prompt template not found at $PROMPT_TEMPLATE"
     exit 1
 fi
 
-# We use Gemini as the synthesizer (Synthesis Agent)
+# We use Gemini as the ensemble lead (Ensemble Agent)
 # Reason: Gemini 1.5 Pro has a large context window suitable for reading long reports.
 
-PROMPT_FILE="${REPORT_DIR}/synthesis_prompt.txt"
+PROMPT_FILE="${REPORT_DIR}/ensemble_prompt.txt"
 
 # Replace placeholders
 # Using python for safe replacement
@@ -40,7 +40,7 @@ import os
 
 template_path = '$PROMPT_TEMPLATE'
 report_content = '''$REPORT_CONTENT'''
-context_arg = 'Synthesize AI Reviews' # Or parse from report if needed
+context_arg = 'Ensemble AI Reviews' # Or parse from report if needed
 
 try:
     with open(template_path, 'r') as f:
@@ -56,30 +56,30 @@ except Exception as e:
 else
     # Simple cat fallback
     cat <<EOF > "$PROMPT_FILE"
-Synthesize the following AI reviews into a final decision.
+Ensemble the following AI reviews into a final decision.
 
 Reviews:
 $REPORT_CONTENT
 EOF
 fi
 
-echo "Synthesizing reviews using Gemini..."
-SYNTHESIS_OUTPUT="${REPORT_DIR}/final_decision.md"
+echo "Ensembling reviews using Gemini..."
+ENSEMBLE_OUTPUT="${REPORT_DIR}/final_decision.md"
 
 # Run Gemini
 # Assuming gemini CLI takes file content via pipe or argument
-cat "$PROMPT_FILE" | gemini -o text > "$SYNTHESIS_OUTPUT"
+cat "$PROMPT_FILE" | gemini -o text > "$ENSEMBLE_OUTPUT"
 
 if [ $? -eq 0 ]; then
-    echo "Synthesis complete: $SYNTHESIS_OUTPUT"
+    echo "Ensemble complete: $ENSEMBLE_OUTPUT"
     
     # Automatically open the result
     if command -v code &> /dev/null; then
-        code "$SYNTHESIS_OUTPUT"
+        code "$ENSEMBLE_OUTPUT"
     else
-        open "$SYNTHESIS_OUTPUT"
+        open "$ENSEMBLE_OUTPUT"
     fi
 else
-    echo "Synthesis failed."
+    echo "Ensemble failed."
     exit 1
 fi
