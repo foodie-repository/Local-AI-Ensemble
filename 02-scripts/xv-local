@@ -14,28 +14,27 @@ DIFF_CONTENT=""
 TARGET_FILE=""
 
 if [[ "$CONTEXT_ARG" == *"파일"* && "$CONTEXT_ARG" == *"리뷰"* ]]; then
-    # Extract filename from argument like "파일 src/main.py 리뷰"
-    # Assuming format: "파일 <filepath> 리뷰"
+    # "파일 <filepath> 리뷰" 형식에서 파일 경로 추출
     TARGET_FILE=$(echo "$CONTEXT_ARG" | sed -E 's/파일 (.*) 리뷰/\1/')
     if [ -f "$TARGET_FILE" ]; then
-        echo "Validating specific file: $TARGET_FILE"
+        echo "파일 검증 중: $TARGET_FILE"
         DIFF_CONTENT=$(cat "$TARGET_FILE")
     else
-        echo "Error: File $TARGET_FILE not found."
+        echo "Error: 파일을 찾을 수 없습니다: $TARGET_FILE"
         exit 1
     fi
 else
-    # Default to staged diff, fallback to working tree diff
-    echo "Validating staged changes..."
+    # Staged 변경사항 검증, 없으면 Working tree 검증
+    echo "Staged 변경사항 검증 중..."
     if git diff --cached --quiet; then
-        echo "No staged changes found. Checking working tree..."
+        echo "Staged 변경사항 없음. Working tree 확인 중..."
         DIFF_CONTENT=$(git diff)
     else
         DIFF_CONTENT=$(git diff --cached)
     fi
     
     if [ -z "$DIFF_CONTENT" ]; then
-        echo "No changes to validate."
+        echo "검증할 변경사항이 없습니다."
         exit 0
     fi
 fi
@@ -60,23 +59,7 @@ fi
 
 PROMPT_FILE="${REPORT_DIR}/prompt.txt"
 
-# Read template and replace placeholders manually (safe for large content)
-# We use perl for safer multi-line replacement if available, or simple sed
-# But simplest bash way for large content is to build the file:
-
-# 1. Read template up to {{CONTEXT_ARG}}
-# 2. Insert Context
-# 3. Read template up to {{DIFF_CONTENT}}
-# 4. Insert Diff
-# 5. Read rest
-
-# Simple sed approach (might fail on special chars in context/diff with complex escaping)
-# Better approach: Construct the prompt file directly using variables
-# We will use the template file as a reference but for robustness in bash, we'll reconstruct it with variables here
-# unless we implement a proper template engine.
-# However, to support user editing the template, we must respect the template file content.
-
-# Let's use a simple python oneliner if available, or just cat for now
+# 플레이스홀더 치환 (python3 사용, 없으면 fallback)
 export CONTEXT_ARG DIFF_CONTENT
 if command -v python3 &> /dev/null; then
     python3 -c "
@@ -99,25 +82,23 @@ try:
 except Exception as e:
     sys.exit(1)
 "
-    # If python failed (e.g. file not found), fallback to cat
     if [ $? -ne 0 ]; then
-        echo "Error utilizing python for template. Using fallback."
+        echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
         cat <<EOF > "$PROMPT_FILE"
-Review Context: $CONTEXT_ARG
-Code:
+리뷰 컨텍스트: $CONTEXT_ARG
+코드:
 $DIFF_CONTENT
 EOF
     fi
 else
-    # Fallback if no python
     cat <<EOF > "$PROMPT_FILE"
-Review Context: $CONTEXT_ARG
-Code:
+리뷰 컨텍스트: $CONTEXT_ARG
+코드:
 $DIFF_CONTENT
 EOF
 fi
 
-echo "Prompt generated at $PROMPT_FILE"
+echo "프롬프트 생성 완료: $PROMPT_FILE"
 
 # Calculate Prompt Hash for Traceability
 if command -v shasum &> /dev/null; then
@@ -128,23 +109,16 @@ else
     PROMPT_HASH=$(md5 -q "$PROMPT_FILE") # macOS fallback
 fi
 
-# Run Claude and Codex in parallel
-echo "Running Claude and Codex..."
-
-# Claude execution (assuming claude -p acceptable)
-# Since the prompt might be large, we'll cat it into a variable or pass via file if supported.
-# CLI typically accepts prompt string.
+# Claude, Codex, Gemini 병렬 실행
+echo "Claude, Codex, Gemini 실행 중..."
 PROMPT_CONTENT=$(cat "$PROMPT_FILE")
 
-# Unset CLAUDECODE to allow running Claude from within Claude Code sessions
 (unset CLAUDECODE; claude -p "$PROMPT_CONTENT" > "${REPORT_DIR}/claude.txt" 2>/dev/null) &
 CLAUDE_PID=$!
 
-# Codex execution
 (echo "$PROMPT_CONTENT" | codex exec - > "${REPORT_DIR}/codex.txt" 2>/dev/null) &
 CODEX_PID=$!
 
-# Gemini execution
 (echo "$PROMPT_CONTENT" | gemini -o text > "${REPORT_DIR}/gemini.txt" 2>/dev/null) &
 GEMINI_PID=$!
 
@@ -152,36 +126,36 @@ wait $CLAUDE_PID
 wait $CODEX_PID
 wait $GEMINI_PID
 
-# Check for failures by verifying output files have content
+# 응답 검증
 WARNINGS=""
 
 if [ ! -s "${REPORT_DIR}/claude.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Claude: no response"
+    WARNINGS="${WARNINGS}\n- Claude: 응답 없음"
 fi
 if [ ! -s "${REPORT_DIR}/codex.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Codex: no response"
+    WARNINGS="${WARNINGS}\n- Codex: 응답 없음"
 fi
 if [ ! -s "${REPORT_DIR}/gemini.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Gemini: no response"
+    WARNINGS="${WARNINGS}\n- Gemini: 응답 없음"
 fi
 
-# Run Validators if environment variables are set
+# Validator 실행 (환경변수가 설정된 경우)
 VALIDATOR_FAIL=0
 if [ -n "$LINT_CMD" ]; then
-    echo "Running Lint: $LINT_CMD"
+    echo "Lint 실행: $LINT_CMD"
     eval "$LINT_CMD" || VALIDATOR_FAIL=1
 fi
 if [ -n "$TYPECHECK_CMD" ]; then
-    echo "Running Typecheck: $TYPECHECK_CMD"
+    echo "타입체크 실행: $TYPECHECK_CMD"
     eval "$TYPECHECK_CMD" || VALIDATOR_FAIL=1
 fi
 if [ -n "$TEST_CMD" ]; then
-    echo "Running Tests: $TEST_CMD"
+    echo "테스트 실행: $TEST_CMD"
     eval "$TEST_CMD" || VALIDATOR_FAIL=1
 fi
 
 if [ $VALIDATOR_FAIL -ne 0 ]; then
-    echo "Validator failed."
+    echo "Validator 실패."
     exit 1
 fi
 
@@ -210,9 +184,9 @@ $(cat "${REPORT_DIR}/codex.txt" 2>/dev/null || echo "No output")
 $(cat "${REPORT_DIR}/gemini.txt" 2>/dev/null || echo "No output")
 EOF
 
-echo "Report generated: $REPORT_MD"
+echo "리포트 생성 완료: $REPORT_MD"
 
-# Automatically open the report in the user's editor
+# 에디터에서 리포트 열기
 if command -v antigravity &> /dev/null; then
     antigravity "$REPORT_MD"
 elif command -v code &> /dev/null; then

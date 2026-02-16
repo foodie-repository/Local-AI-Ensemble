@@ -41,47 +41,47 @@ fi
 
 PROMPT_FILE="${REPORT_DIR}/ensemble_prompt.txt"
 
-# Replace placeholders
-# Using python for safe replacement
+# 플레이스홀더 치환
+export REPORT_CONTENT
+CONTEXT_ARG="AI 리뷰 앙상블"
+export CONTEXT_ARG
+
 if command -v python3 &> /dev/null; then
     python3 -c "
 import sys
 import os
 
 template_path = '$PROMPT_TEMPLATE'
-report_content = '''$REPORT_CONTENT'''
-context_arg = 'Ensemble AI Reviews' # Or parse from report if needed
+context_arg = os.environ.get('CONTEXT_ARG', '')
+report_content = os.environ.get('REPORT_CONTENT', '')
 
 try:
     with open(template_path, 'r') as f:
         template = f.read()
-    
+
     output = template.replace('{{CONTEXT_ARG}}', context_arg).replace('{{DIFF_CONTENT}}', report_content)
-    
+
     with open('$PROMPT_FILE', 'w') as f:
         f.write(output)
 except Exception as e:
     sys.exit(1)
 "
 else
-    # Simple cat fallback
     cat <<EOF > "$PROMPT_FILE"
-Ensemble the following AI reviews into a final decision.
+아래 AI 리뷰들을 종합하여 최종 결정을 내려주세요.
 
-Reviews:
+리뷰 내용:
 $REPORT_CONTENT
 EOF
 fi
 
-echo "Ensembling reviews using Gemini..."
+echo "Gemini로 앙상블 진행 중..."
 ENSEMBLE_OUTPUT="${REPORT_DIR}/final_decision.md"
 
-# Run Gemini
-# Assuming gemini CLI takes file content via pipe or argument
-cat "$PROMPT_FILE" | gemini -o text > "$ENSEMBLE_OUTPUT"
+cat "$PROMPT_FILE" | gemini -o text > "$ENSEMBLE_OUTPUT" 2>/dev/null
 
 if [ $? -eq 0 ]; then
-    echo "Ensemble complete: $ENSEMBLE_OUTPUT"
+    echo "앙상블 완료: $ENSEMBLE_OUTPUT"
     
     # Automatically open the result in the user's editor
     if command -v antigravity &> /dev/null; then
@@ -92,6 +92,6 @@ if [ $? -eq 0 ]; then
         open "$ENSEMBLE_OUTPUT"
     fi
 else
-    echo "Ensemble failed."
+    echo "앙상블 실패."
     exit 1
 fi
