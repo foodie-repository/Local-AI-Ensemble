@@ -21,5 +21,5 @@
 
 **앙상블할 리뷰 내용:**
 ```
-{{DIFF_CONTENT}}
+{{REPORT_CONTENT}}
 ```

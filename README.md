@@ -54,13 +54,13 @@
 **날짜:** ...
 **프롬프트 해시:** `a1b2c3d4` (이 결과가 어떤 질문에서 나왔는지 증명하는 지문)
 
-## Claude 응답
+## claude (opus) 응답
 "아키텍처는 마이크로서비스가 좋겠습니다..."
 
-## Codex 응답
+## codex (gpt-5.3-codex) 응답
 "구현 순서는 1. DB설계, 2. API구현..."
 
-## Gemini 응답
+## gemini (0.26.0) 응답
 "데이터 모델은 이렇게 잡으세요..."
 ```
 > **Tip**: 여기서 마음에 드는 부분만 골라내세요(Cherry-pick). 복붙할 필요 없습니다. 다음 단계가 있으니까요.
@@ -123,6 +123,7 @@ local-ai-ensemble/
 
 ### 사전 요구사항
 - `claude`, `codex`, `gemini` CLI 도구가 설치되어 있어야 합니다.
+- `python3` (프롬프트 템플릿 처리용, 없으면 기본 형식으로 동작)
 
 ### 자동 설치 (Recommended)
 터미널에서 아래 명령어를 실행하면 `~/.local/bin` 경로에 도구가 설치됩니다.
@@ -167,8 +168,19 @@ chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 
 ### Validator 연결
 코드 품질을 더 높이고 싶다면 Linter나 Test를 자동 실행할 수 있습니다.
-(`.env` 파일 설정)
 ```bash
 export LINT_CMD="flake8 ."
 export TEST_CMD="pytest"
+```
+
+### AI 실행 타임아웃
+AI 모델의 응답 대기 시간을 조절할 수 있습니다. (기본: 120초)
+```bash
+export AI_TIMEOUT=300  # 5분으로 변경
+```
+
+### 에러 로그 확인
+AI가 응답하지 않았을 때 원인을 파악하려면 `.err` 파일을 확인하세요.
+```bash
+cat ai-ensemble/reports/YYYYMMDD_HHMMSS/claude.err
 ```

@@ -1,7 +1,52 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # Ensure we are in the git root
 cd "$(git rev-parse --show-toplevel)" || exit 1
+
+# CLI 모델 버전 감지 함수
+# 우선순위: 1) 설정 파일에서 모델명 → 2) --version → 3) CLI 이름만
+get_model_info() {
+    local cli_name="$1"
+    local model_name=""
+
+    case "$cli_name" in
+        claude)
+            # ~/.claude/settings.json에서 model 필드 추출
+            if command -v python3 &> /dev/null && [ -f "$HOME/.claude/settings.json" ]; then
+                model_name=$(python3 -c "
+import json
+try:
+    with open('$HOME/.claude/settings.json') as f:
+        print(json.load(f).get('model', ''))
+except: pass
+" 2>/dev/null)
+            fi
+            ;;
+        codex)
+            # ~/.codex/config.toml에서 model 필드 추출
+            if [ -f "$HOME/.codex/config.toml" ]; then
+                model_name=$(grep '^model' "$HOME/.codex/config.toml" | head -1 | sed 's/model *= *"\(.*\)"/\1/')
+            fi
+            ;;
+        gemini)
+            # gemini는 설정에 모델명이 없으므로 아래 fallback 사용
+            ;;
+    esac
+
+    if [ -n "$model_name" ]; then
+        echo "${cli_name} (${model_name})"
+    else
+        # fallback: --version
+        local version_info=""
+        version_info=$("$cli_name" --version 2>/dev/null | head -1) || version_info=""
+        if [ -n "$version_info" ]; then
+            echo "${cli_name} (${version_info})"
+        else
+            echo "$cli_name"
+        fi
+    fi
+}
 
 # Timestamp for report directory
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -9,7 +54,7 @@ REPORT_DIR="ai-ensemble/reports/${TIMESTAMP}"
 mkdir -p "$REPORT_DIR"
 
 # Determine context (Staged diff or specific file)
-CONTEXT_ARG="$1"
+CONTEXT_ARG="${1:-}"
 DIFF_CONTENT=""
 TARGET_FILE=""
 
@@ -41,18 +86,22 @@ fi
 
 
 # Prepare prompt content
-# 우선순위: 1) 프로젝트 커스텀 프롬프트 → 2) 시스템 프롬프트 원본에서 복사
+# 우선순위: 1) 프로젝트 커스텀 → 2) Git 루트 원본 → 3) 설치된 프롬프트
 PROMPT_TEMPLATE="ai-ensemble/custom-prompts/review.md"
 SYSTEM_PROMPT="01-system-prompts/default_review.md"
+INSTALLED_PROMPT="${HOME}/.local/share/xv-ensemble/prompts/default_review.md"
 
 if [ ! -f "$PROMPT_TEMPLATE" ]; then
     mkdir -p "$(dirname "$PROMPT_TEMPLATE")"
     if [ -f "$SYSTEM_PROMPT" ]; then
         cp "$SYSTEM_PROMPT" "$PROMPT_TEMPLATE"
         echo "커스텀 프롬프트 생성: $SYSTEM_PROMPT → $PROMPT_TEMPLATE"
+    elif [ -f "$INSTALLED_PROMPT" ]; then
+        cp "$INSTALLED_PROMPT" "$PROMPT_TEMPLATE"
+        echo "커스텀 프롬프트 생성: $INSTALLED_PROMPT → $PROMPT_TEMPLATE"
     else
-        echo "Error: 시스템 프롬프트를 찾을 수 없습니다: $SYSTEM_PROMPT"
-        echo "install.sh를 먼저 실행해주세요."
+        echo "Error: 시스템 프롬프트를 찾을 수 없습니다."
+        echo "프로젝트 루트의 01-system-prompts/ 또는 install.sh를 먼저 실행해주세요."
         exit 1
     fi
 fi
@@ -62,7 +111,7 @@ PROMPT_FILE="${REPORT_DIR}/prompt.txt"
 # 플레이스홀더 치환 (python3 사용, 없으면 fallback)
 export CONTEXT_ARG DIFF_CONTENT
 if command -v python3 &> /dev/null; then
-    python3 -c "
+    if python3 -c "
 import sys
 import os
 
@@ -73,16 +122,17 @@ diff_content = os.environ.get('DIFF_CONTENT', '')
 try:
     with open(template_path, 'r') as f:
         template = f.read()
-    
+
     # Simple replacement
     output = template.replace('{{CONTEXT_ARG}}', context_arg).replace('{{DIFF_CONTENT}}', diff_content)
-    
+
     with open('$PROMPT_FILE', 'w') as f:
         f.write(output)
 except Exception as e:
     sys.exit(1)
-"
-    if [ $? -ne 0 ]; then
+"; then
+        : # 템플릿 처리 성공
+    else
         echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
         cat <<EOF > "$PROMPT_FILE"
 리뷰 컨텍스트: $CONTEXT_ARG
@@ -109,47 +159,74 @@ else
     PROMPT_HASH=$(md5 -q "$PROMPT_FILE") # macOS fallback
 fi
 
-# Claude, Codex, Gemini 병렬 실행
-echo "Claude, Codex, Gemini 실행 중..."
-PROMPT_CONTENT=$(cat "$PROMPT_FILE")
+# 모델 버전 감지
+CLAUDE_MODEL=$(get_model_info claude)
+CODEX_MODEL=$(get_model_info codex)
+GEMINI_MODEL=$(get_model_info gemini)
 
-(unset CLAUDECODE; claude -p "$PROMPT_CONTENT" > "${REPORT_DIR}/claude.txt" 2>/dev/null) &
+# 타임아웃 명령 감지 (macOS: gtimeout, Linux: timeout)
+TIMEOUT_CMD=""
+AI_TIMEOUT="${AI_TIMEOUT:-120}"
+if command -v timeout &> /dev/null; then
+    TIMEOUT_CMD="timeout ${AI_TIMEOUT}"
+elif command -v gtimeout &> /dev/null; then
+    TIMEOUT_CMD="gtimeout ${AI_TIMEOUT}"
+fi
+
+# Claude, Codex, Gemini 병렬 실행
+echo "${CLAUDE_MODEL}, ${CODEX_MODEL}, ${GEMINI_MODEL} 실행 중..."
+
+(unset CLAUDECODE; ${TIMEOUT_CMD} claude -p - < "$PROMPT_FILE" > "${REPORT_DIR}/claude.txt" 2>"${REPORT_DIR}/claude.err") &
 CLAUDE_PID=$!
 
-(echo "$PROMPT_CONTENT" | codex exec - > "${REPORT_DIR}/codex.txt" 2>/dev/null) &
+(${TIMEOUT_CMD} codex exec - < "$PROMPT_FILE" > "${REPORT_DIR}/codex.txt" 2>"${REPORT_DIR}/codex.err") &
 CODEX_PID=$!
 
-(echo "$PROMPT_CONTENT" | gemini -o text > "${REPORT_DIR}/gemini.txt" 2>/dev/null) &
+(${TIMEOUT_CMD} gemini -o text < "$PROMPT_FILE" > "${REPORT_DIR}/gemini.txt" 2>"${REPORT_DIR}/gemini.err") &
 GEMINI_PID=$!
 
-wait $CLAUDE_PID
-wait $CODEX_PID
-wait $GEMINI_PID
+FAIL_COUNT=0
+
+wait $CLAUDE_PID || true
+wait $CODEX_PID || true
+wait $GEMINI_PID || true
 
 # 응답 검증
 WARNINGS=""
 
 if [ ! -s "${REPORT_DIR}/claude.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Claude: 응답 없음"
+    WARNINGS="${WARNINGS}
+- Claude: 응답 없음"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
 fi
 if [ ! -s "${REPORT_DIR}/codex.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Codex: 응답 없음"
+    WARNINGS="${WARNINGS}
+- Codex: 응답 없음"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
 fi
 if [ ! -s "${REPORT_DIR}/gemini.txt" ]; then
-    WARNINGS="${WARNINGS}\n- Gemini: 응답 없음"
+    WARNINGS="${WARNINGS}
+- Gemini: 응답 없음"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+fi
+
+# 3개 모두 실패 시 종료
+if [ $FAIL_COUNT -eq 3 ]; then
+    echo "Error: 모든 AI 모델이 응답하지 않았습니다."
+    exit 1
 fi
 
 # Validator 실행 (환경변수가 설정된 경우)
 VALIDATOR_FAIL=0
-if [ -n "$LINT_CMD" ]; then
+if [ -n "${LINT_CMD:-}" ]; then
     echo "Lint 실행: $LINT_CMD"
     eval "$LINT_CMD" || VALIDATOR_FAIL=1
 fi
-if [ -n "$TYPECHECK_CMD" ]; then
+if [ -n "${TYPECHECK_CMD:-}" ]; then
     echo "타입체크 실행: $TYPECHECK_CMD"
     eval "$TYPECHECK_CMD" || VALIDATOR_FAIL=1
 fi
-if [ -n "$TEST_CMD" ]; then
+if [ -n "${TEST_CMD:-}" ]; then
     echo "테스트 실행: $TEST_CMD"
     eval "$TEST_CMD" || VALIDATOR_FAIL=1
 fi
@@ -170,17 +247,17 @@ cat <<EOF > "$REPORT_MD"
 ## 상태
 $WARNINGS
 
-## Claude 응답
+## ${CLAUDE_MODEL} 응답
 $(cat "${REPORT_DIR}/claude.txt" 2>/dev/null || echo "출력 없음")
 
 ---
 
-## Codex 응답
+## ${CODEX_MODEL} 응답
 $(cat "${REPORT_DIR}/codex.txt" 2>/dev/null || echo "출력 없음")
 
 ---
 
-## Gemini 응답
+## ${GEMINI_MODEL} 응답
 $(cat "${REPORT_DIR}/gemini.txt" 2>/dev/null || echo "출력 없음")
 EOF
 
@@ -191,6 +268,8 @@ if command -v antigravity &> /dev/null; then
     antigravity "$REPORT_MD"
 elif command -v code &> /dev/null; then
     code "$REPORT_MD"
+elif command -v xdg-open &> /dev/null; then
+    xdg-open "$REPORT_MD"
 else
     open "$REPORT_MD"
 fi

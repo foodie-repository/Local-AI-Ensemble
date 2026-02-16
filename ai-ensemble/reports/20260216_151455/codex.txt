@@ -1,0 +1,16 @@
+**요약**
+현재 변경사항은 구현 지시 초안 수준이라, 실제 `DB 스키마`와 `API 명세`를 일관되게 도출하기엔 정보가 부족합니다. 특히 기능 경계, 보안 정책, 성능 목표가 빠져 있어 재작업 위험이 큽니다.
+
+**개선항목**
+- `[높음][정확성]` `plan_request.md:3`, `plan_request.md:4`, `plan_request.md:7`  
+  요구사항이 너무 추상적이라 설계자가 임의로 해석할 여지가 큽니다. `RSS 소스 관리 범위(등록/수정/비활성화)`, `수집 주기`, `중복 기사 판별 키`, `요약 길이/언어`, `태깅 기준`을 명시하세요.
+- `[높음][정확성]` `plan_request.md:7`  
+  데이터 모델의 핵심 제약(유니크/관계/삭제 정책)이 없어 DB 설계 오류 가능성이 큽니다. `articles`, `feed_sources`, `tags`, `article_tags` 같은 엔터티와 `ON DELETE`, `UNIQUE(source_id, normalized_url)` 등의 제약을 요구사항에 포함하세요.
+- `[높음][보안]` `plan_request.md:4`  
+  RSS/본문은 비신뢰 입력인데 보안 처리 요구가 없습니다. `HTML sanitize`, `URL 검증`, `XSS 방지`, `외부 요청 도메인 allowlist`, `요약 모델 프롬프트 인젝션 방어`를 필수 요구로 추가하세요.
+- `[높음][보안]` `plan_request.md:7`  
+  API 인증/인가 요구가 없어 관리 API가 무방비로 설계될 수 있습니다. `JWT/OAuth2`, 역할 기반 권한(`admin`, `viewer`), rate limiting, audit log 요구사항을 명시하세요.
+- `[중간][성능]` `plan_request.md:4`, `plan_request.md:7`  
+  처리량/지연 목표가 없어 비효율 구현 가능성이 큽니다. `수집 배치 크기`, `요약 비동기 큐`, `재시도/백오프`, `캐시 정책`, `페이지네이션(cursor)` 및 인덱스 전략을 정의하세요.
+- `[중간][스타일]` `plan_request.md:1`~`plan_request.md:7`  
+  문서 구조가 질문형 한 줄로 끝나 재사용성이 낮습니다. `목표`, `기능 요구`, `비기능 요구`, `보안`, `성능`, `산출물(DB ERD/API Spec/OpenAPI)`, `수용 기준(acceptance criteria)` 섹션으로 템플릿화하세요.
