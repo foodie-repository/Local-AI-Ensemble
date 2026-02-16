@@ -124,11 +124,13 @@ cp 01-system-prompts/* ~/.local/share/xv-ensemble/prompts/
 chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
-### VS Code 설정
-1. **Tasks (`tasks.json`)**: 스크립트를 실행할 Task 등록
-2. **Keybindings (`keybindings.json`)**: 단축키 매핑
+### 에디터 설정
+사용하는 에디터(VS Code, Antigravity IDE 등)에 맞게 Task와 단축키를 설정하세요.
 
-**단축키 목록**:
+1. **Tasks**: 스크립트를 실행할 Task 등록 (예: `tasks.json`)
+2. **Keybindings**: 단축키 매핑 (예: `keybindings.json`)
+
+**단축키 목록 (권장)**:
 - `Cmd + Opt + V`: Staged 변경사항 검증 (Commit 전 확인용)
 - `Cmd + Opt + Shift + V`: 현재 파일 검증/질문 (기획/설계용)
 - `Cmd + Opt + E`: 리포트 앙상블 (결론 도출용)
