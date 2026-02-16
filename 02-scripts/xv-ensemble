@@ -20,10 +20,20 @@ REPORT_CONTENT=$(cat "$REPORT_FILE")
 REPORT_DIR=$(dirname "$REPORT_FILE")
 
 # Prepare ensemble prompt
+# 우선순위: 1) 프로젝트 커스텀 프롬프트 → 2) 시스템 프롬프트 원본에서 복사
 PROMPT_TEMPLATE="ai-ensemble/custom-prompts/ensemble.md"
+SYSTEM_PROMPT="01-system-prompts/ensemble.md"
+
 if [ ! -f "$PROMPT_TEMPLATE" ]; then
-    echo "Error: Ensemble prompt template not found at $PROMPT_TEMPLATE"
-    exit 1
+    mkdir -p "$(dirname "$PROMPT_TEMPLATE")"
+    if [ -f "$SYSTEM_PROMPT" ]; then
+        cp "$SYSTEM_PROMPT" "$PROMPT_TEMPLATE"
+        echo "커스텀 프롬프트 생성: $SYSTEM_PROMPT → $PROMPT_TEMPLATE"
+    else
+        echo "Error: 시스템 프롬프트를 찾을 수 없습니다: $SYSTEM_PROMPT"
+        echo "install.sh를 먼저 실행해주세요."
+        exit 1
+    fi
 fi
 
 # We use Gemini as the ensemble lead (Ensemble Agent)

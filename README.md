@@ -139,8 +139,9 @@ chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 
 ### 프롬프트 커스터마이징
 리뷰나 기획의 기준을 바꾸고 싶다면?
-- `01-system-prompts/default_review.md` 파일을 수정하여 재설치하거나,
-- 프로젝트 내 `ai-ensemble/custom-prompts/` 폴더에 복사해서 수정하세요.
+- `ai-ensemble/custom-prompts/review.md` (리뷰용) 또는 `ensemble.md` (앙상블용) 파일을 직접 수정하세요.
+- 이 파일들은 첫 실행 시 `01-system-prompts/` 원본에서 자동 복사됩니다.
+- 원본을 복구하려면 커스텀 파일을 삭제하고 다시 실행하면 됩니다.
 
 ### Validator 연결
 코드 품질을 더 높이고 싶다면 Linter나 Test를 자동 실행할 수 있습니다.
