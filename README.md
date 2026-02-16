@@ -50,17 +50,17 @@
 자동으로 열린 `report.md` 파일을 보면 3명의 전문가가 의견을 내놓았습니다.
 
 ```markdown
-# AI Code Review Report
-**Date:** ...
-**Prompt Hash:** `a1b2c3d4` (이 결과가 어떤 질문에서 나왔는지 증명하는 지문)
+# AI 코드 리뷰 리포트
+**날짜:** ...
+**프롬프트 해시:** `a1b2c3d4` (이 결과가 어떤 질문에서 나왔는지 증명하는 지문)
 
-## Claude Response
+## Claude 응답
 "아키텍처는 마이크로서비스가 좋겠습니다..."
 
-## Codex Response
+## Codex 응답
 "구현 순서는 1. DB설계, 2. API구현..."
 
-## Gemini Response
+## Gemini 응답
 "데이터 모델은 이렇게 잡으세요..."
 ```
 > **Tip**: 여기서 마음에 드는 부분만 골라내세요(Cherry-pick). 복붙할 필요 없습니다. 다음 단계가 있으니까요.
@@ -93,7 +93,27 @@
 
 ---
 
-## 3. 설치 및 설정 (Setup)
+## 3. 프로젝트 구조
+
+```
+local-ai-ensemble/
+├── 01-system-prompts/        # 시스템 프롬프트 원본
+│   ├── default_review.md     #   코드 리뷰용
+│   └── ensemble.md           #   앙상블 종합용
+├── 02-scripts/               # 실행 스크립트
+│   ├── xv-local              #   3대 AI 병렬 실행
+│   └── xv-ensemble           #   리포트 앙상블
+├── ai-ensemble/              # 실행 결과 (자동 생성)
+│   ├── custom-prompts/       #   커스터마이징용 프롬프트
+│   └── reports/              #   타임스탬프별 리포트
+├── install.sh                # 설치 스크립트
+├── plan_request.md           # 질문/요구사항 입력 파일
+└── README.md
+```
+
+---
+
+## 4. 설치 및 설정 (Setup)
 
 ### 지원 환경
 - **macOS** (권장)
@@ -137,7 +157,7 @@ chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 
 ---
 
-## 4. 고급 활용 팁
+## 5. 고급 활용 팁
 
 ### 프롬프트 커스터마이징
 리뷰나 기획의 기준을 바꾸고 싶다면?

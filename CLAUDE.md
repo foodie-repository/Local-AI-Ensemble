@@ -21,11 +21,12 @@ local-ai-ensemble/
 │           ├── claude.txt      #     Claude 응답 원본
 │           ├── codex.txt       #     Codex 응답 원본
 │           ├── gemini.txt      #     Gemini 응답 원본
-│           └── report.md       #     3개 응답 통합 리포트
+│           ├── report.md       #     3개 응답 통합 리포트
+│           └── final_decision.md #   앙상블 최종 결정 (xv-ensemble 실행 시)
 ├── install.sh                  # 자동 설치 스크립트
-├── plan_request.md             # 예시 입력 파일
+├── plan_request.md             # 질문/요구사항 입력 파일
 ├── .gitignore
-├── CLAUDE.md                   # 이 파일
+├── CLAUDE.md                   # 이 파일 (Claude Code 가이드)
 └── README.md                   # 사용자 가이드
 ```
 

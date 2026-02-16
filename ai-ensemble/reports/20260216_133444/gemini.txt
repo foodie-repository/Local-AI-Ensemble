@@ -1,0 +1,72 @@
+### 리뷰 결과: `plan_request.md`
+
+**요약**
+
+해당 문서는 'AI 뉴스 수집기' 프로젝트의 고수준 요구사항과 목표를 명확하게 제시하고 있습니다. Python, FastAPI, React 기술 스택을 활용하여 RSS 피드 수집, 요약, 태깅 기능을 구현하는 것을 목표로 하며, 이를 바탕으로 상세 구현 계획 수립을 요청하고 있습니다.
+
+**개선항목**
+
+현재 문서는 프로젝트의 초기 기획 단계로, 실제 개발을 진행하기에는 세부 사항이 부족합니다. 요청하신 내용을 바탕으로 아래와 같이 DB 스키마와 API 명세를 구체화하여 제안합니다. 이 계획을 기반으로 백엔드와 프론트엔드 개발을 시작할 수 있습니다.
+
+---
+
+### **상세 구현 계획 제안**
+
+#### **1. 데이터베이스 스키마 (SQLAlchemy + Pydantic 모델 기준)**
+
+- **`articles` 테이블**: 수집된 뉴스 기사 정보를 저장합니다.
+    - `id` (Integer, Primary Key): 기사 고유 ID
+    - `title` (String): 기사 제목
+    - `link` (String, Unique): 원본 기사 링크
+    - `content` (Text): 기사 원문 (수집 시 저장)
+    - `summary` (Text): AI가 생성한 요약본
+    - `published_at` (DateTime): 원본 기사 발행일
+    - `created_at` (DateTime): DB 저장 시간
+    - `feed_id` (Integer, Foreign Key to `feeds.id`): 어떤 RSS 피드에서 왔는지 참조
+
+- **`feeds` 테이블**: 수집할 RSS 피드 정보를 관리합니다.
+    - `id` (Integer, Primary Key): 피드 고유 ID
+    - `url` (String, Unique): RSS 피드 주소
+    - `name` (String): 피드 이름 (예: "Google AI Blog")
+    - `last_fetched_at` (DateTime): 마지막으로 피드를 수집한 시간
+
+- **`tags` 테이블**: AI가 생성하거나 사용자가 추가한 태그를 저장합니다.
+    - `id` (Integer, Primary Key): 태그 고유 ID
+    - `name` (String, Unique): 태그 이름 (예: "LLM")
+
+- **`article_tags` 테이블** (Association Table): 기사와 태그의 다대다(N:M) 관계를 정의합니다.
+    - `article_id` (Integer, Foreign Key to `articles.id`)
+    - `tag_id` (Integer, Foreign Key to `tags.id`)
+
+#### **2. API 명세 (FastAPI 기준)**
+
+**Pydantic Schemas:**
+
+- `ArticleSchema`, `FeedSchema`, `TagSchema` 등 DB 모델에 대응하는 스키마를 정의하여 데이터 유효성 검사 및 응답 모델로 사용합니다.
+
+**Endpoints:**
+
+- `POST /feeds/`: 새로운 RSS 피드를 등록합니다.
+    - **Request Body**: `{ "url": "string", "name": "string" }`
+    - **Response**: 등록된 피드 정보
+
+- `GET /feeds/`: 등록된 모든 RSS 피드 목록을 조회합니다.
+    - **Response**: 피드 목록 배열
+
+- `DELETE /feeds/{feed_id}`: 특정 RSS 피드를 삭제합니다.
+
+- `GET /articles/`: 기사 목록을 페이지네이션과 함께 조회합니다.
+    - **Query Parameters**: `?skip=0&limit=20&tag=LLM` (태그별 필터링)
+    - **Response**: 기사 목록 배열 (요약, 태그 포함)
+
+- `GET /articles/{article_id}`: 특정 기사의 상세 정보를 조회합니다.
+    - **Response**: 기사 상세 정보 (원문 포함)
+
+- `POST /tasks/fetch-feeds`: 모든 피드를 순회하며 새로운 기사를 수집하는 백그라운드 작업을 실행합니다. (관리자용 또는 스케줄링)
+    - **Response**: 작업 실행 상태
+
+#### **3. 핵심 로직 구현 방안**
+
+- **RSS 피드 수집**: `feedparser` 라이브러리를 사용하여 주기적으로 각 RSS 피드에서 새로운 기사를 수집하고 `articles` 테이블에 저장합니다.
+- **요약 및 태깅**: 새로 수집된 기사의 `content`(원문)를 프롬프트로 구성하여 대규모 언어 모델(LLM) API를 호출합니다. 응답으로 받은 요약과 태그를 각각 `summary` 필드와 `tags`/`article_tags` 테이블에 저장합니다. 이 과정은 시간이 걸릴 수 있으므로 FastAPI의 `BackgroundTasks`를 활용하는 것이 좋습니다.
+- **스케줄링**: `apscheduler`와 같은 라이브러리를 FastAPI와 통합하여 특정 시간 간격(예: 1시간마다)으로 피드 수집 및 분석 작업을 자동 실행하도록 구성합니다.

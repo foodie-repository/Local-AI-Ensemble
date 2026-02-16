@@ -36,8 +36,7 @@ if [ ! -f "$PROMPT_TEMPLATE" ]; then
     fi
 fi
 
-# We use Gemini as the ensemble lead (Ensemble Agent)
-# Reason: Gemini 1.5 Pro has a large context window suitable for reading long reports.
+# Gemini를 앙상블 리드로 사용 (대용량 컨텍스트 윈도우 활용)
 
 PROMPT_FILE="${REPORT_DIR}/ensemble_prompt.txt"
 
@@ -83,7 +82,7 @@ cat "$PROMPT_FILE" | gemini -o text > "$ENSEMBLE_OUTPUT" 2>/dev/null
 if [ $? -eq 0 ]; then
     echo "앙상블 완료: $ENSEMBLE_OUTPUT"
     
-    # Automatically open the result in the user's editor
+    # 에디터에서 결과 열기
     if command -v antigravity &> /dev/null; then
         antigravity "$ENSEMBLE_OUTPUT"
     elif command -v code &> /dev/null; then

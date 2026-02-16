@@ -159,29 +159,29 @@ if [ $VALIDATOR_FAIL -ne 0 ]; then
     exit 1
 fi
 
-# Generate Report MD
+# 리포트 생성
 REPORT_MD="${REPORT_DIR}/report.md"
 cat <<EOF > "$REPORT_MD"
-# AI Code Review Report
-**Date:** $(date)
-**Context:** $CONTEXT_ARG
-**Prompt Hash:** \`$PROMPT_HASH\`
+# AI 코드 리뷰 리포트
+**날짜:** $(date)
+**컨텍스트:** $CONTEXT_ARG
+**프롬프트 해시:** \`$PROMPT_HASH\`
 
-## Status
+## 상태
 $WARNINGS
 
-## Claude Response
-$(cat "${REPORT_DIR}/claude.txt" 2>/dev/null || echo "No output")
+## Claude 응답
+$(cat "${REPORT_DIR}/claude.txt" 2>/dev/null || echo "출력 없음")
 
 ---
 
-## Codex Response
-$(cat "${REPORT_DIR}/codex.txt" 2>/dev/null || echo "No output")
+## Codex 응답
+$(cat "${REPORT_DIR}/codex.txt" 2>/dev/null || echo "출력 없음")
 
 ---
 
-## Gemini Response
-$(cat "${REPORT_DIR}/gemini.txt" 2>/dev/null || echo "No output")
+## Gemini 응답
+$(cat "${REPORT_DIR}/gemini.txt" 2>/dev/null || echo "출력 없음")
 EOF
 
 echo "리포트 생성 완료: $REPORT_MD"
