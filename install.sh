@@ -37,9 +37,10 @@ mkdir -p "$PROMPT_DIR"
 
 # 3. 스크립트 복사
 echo "- 스크립트 복사 중: $INSTALL_DIR"
+cp 02-scripts/xv-common "$INSTALL_DIR/"
 cp 02-scripts/xv-local "$INSTALL_DIR/"
 cp 02-scripts/xv-ensemble "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/xv-local" "$INSTALL_DIR/xv-ensemble"
+chmod +x "$INSTALL_DIR/xv-common" "$INSTALL_DIR/xv-local" "$INSTALL_DIR/xv-ensemble"
 
 # 4. 프롬프트 복사
 echo "- 프롬프트 복사 중: $PROMPT_DIR"

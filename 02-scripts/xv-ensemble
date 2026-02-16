@@ -4,45 +4,9 @@ set -euo pipefail
 # Ensure we are in the git root
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# CLI 모델 버전 감지 함수
-# 우선순위: 1) 설정 파일에서 모델명 → 2) --version → 3) CLI 이름만
-get_model_info() {
-    local cli_name="$1"
-    local model_name=""
-
-    case "$cli_name" in
-        claude)
-            if command -v python3 &> /dev/null && [ -f "$HOME/.claude/settings.json" ]; then
-                model_name=$(python3 -c "
-import json
-try:
-    with open('$HOME/.claude/settings.json') as f:
-        print(json.load(f).get('model', ''))
-except: pass
-" 2>/dev/null)
-            fi
-            ;;
-        codex)
-            if [ -f "$HOME/.codex/config.toml" ]; then
-                model_name=$(grep '^model' "$HOME/.codex/config.toml" | head -1 | sed 's/model *= *"\(.*\)"/\1/')
-            fi
-            ;;
-        gemini)
-            ;;
-    esac
-
-    if [ -n "$model_name" ]; then
-        echo "${cli_name} (${model_name})"
-    else
-        local version_info=""
-        version_info=$("$cli_name" --version 2>/dev/null | head -1) || version_info=""
-        if [ -n "$version_info" ]; then
-            echo "${cli_name} (${version_info})"
-        else
-            echo "$cli_name"
-        fi
-    fi
-}
+# 공통 함수 로드
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/xv-common"
 
 REPORT_FILE="${1:-}"
 
@@ -61,25 +25,10 @@ REPORT_CONTENT=$(cat "$REPORT_FILE")
 REPORT_DIR=$(dirname "$REPORT_FILE")
 
 # Prepare ensemble prompt
-# 우선순위: 1) 프로젝트 커스텀 → 2) Git 루트 원본 → 3) 설치된 프롬프트
 PROMPT_TEMPLATE="ai-ensemble/custom-prompts/ensemble.md"
 SYSTEM_PROMPT="01-system-prompts/ensemble.md"
-INSTALLED_PROMPT="${HOME}/.local/share/xv-ensemble/prompts/ensemble.md"
 
-if [ ! -f "$PROMPT_TEMPLATE" ]; then
-    mkdir -p "$(dirname "$PROMPT_TEMPLATE")"
-    if [ -f "$SYSTEM_PROMPT" ]; then
-        cp "$SYSTEM_PROMPT" "$PROMPT_TEMPLATE"
-        echo "커스텀 프롬프트 생성: $SYSTEM_PROMPT → $PROMPT_TEMPLATE"
-    elif [ -f "$INSTALLED_PROMPT" ]; then
-        cp "$INSTALLED_PROMPT" "$PROMPT_TEMPLATE"
-        echo "커스텀 프롬프트 생성: $INSTALLED_PROMPT → $PROMPT_TEMPLATE"
-    else
-        echo "Error: 시스템 프롬프트를 찾을 수 없습니다."
-        echo "프로젝트 루트의 01-system-prompts/ 또는 install.sh를 먼저 실행해주세요."
-        exit 1
-    fi
-fi
+load_prompt_template "$PROMPT_TEMPLATE" "$SYSTEM_PROMPT" || exit 1
 
 # Gemini를 앙상블 리드로 사용 (대용량 컨텍스트 윈도우 활용)
 
@@ -137,15 +86,7 @@ if gemini -o text < "$PROMPT_FILE" > "$ENSEMBLE_OUTPUT" 2>"${REPORT_DIR}/ensembl
     echo "앙상블 완료: $ENSEMBLE_OUTPUT"
     
     # 에디터에서 결과 열기
-    if command -v antigravity &> /dev/null; then
-        antigravity "$ENSEMBLE_OUTPUT"
-    elif command -v code &> /dev/null; then
-        code "$ENSEMBLE_OUTPUT"
-    elif command -v xdg-open &> /dev/null; then
-        xdg-open "$ENSEMBLE_OUTPUT"
-    else
-        open "$ENSEMBLE_OUTPUT"
-    fi
+    open_in_editor "$ENSEMBLE_OUTPUT"
 else
     echo "앙상블 실패."
     exit 1

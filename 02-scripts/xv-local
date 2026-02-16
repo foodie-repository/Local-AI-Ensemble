@@ -4,49 +4,9 @@ set -euo pipefail
 # Ensure we are in the git root
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
-# CLI 모델 버전 감지 함수
-# 우선순위: 1) 설정 파일에서 모델명 → 2) --version → 3) CLI 이름만
-get_model_info() {
-    local cli_name="$1"
-    local model_name=""
-
-    case "$cli_name" in
-        claude)
-            # ~/.claude/settings.json에서 model 필드 추출
-            if command -v python3 &> /dev/null && [ -f "$HOME/.claude/settings.json" ]; then
-                model_name=$(python3 -c "
-import json
-try:
-    with open('$HOME/.claude/settings.json') as f:
-        print(json.load(f).get('model', ''))
-except: pass
-" 2>/dev/null)
-            fi
-            ;;
-        codex)
-            # ~/.codex/config.toml에서 model 필드 추출
-            if [ -f "$HOME/.codex/config.toml" ]; then
-                model_name=$(grep '^model' "$HOME/.codex/config.toml" | head -1 | sed 's/model *= *"\(.*\)"/\1/')
-            fi
-            ;;
-        gemini)
-            # gemini는 설정에 모델명이 없으므로 아래 fallback 사용
-            ;;
-    esac
-
-    if [ -n "$model_name" ]; then
-        echo "${cli_name} (${model_name})"
-    else
-        # fallback: --version
-        local version_info=""
-        version_info=$("$cli_name" --version 2>/dev/null | head -1) || version_info=""
-        if [ -n "$version_info" ]; then
-            echo "${cli_name} (${version_info})"
-        else
-            echo "$cli_name"
-        fi
-    fi
-}
+# 공통 함수 로드
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/xv-common"
 
 # Timestamp for report directory
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -89,22 +49,8 @@ fi
 # 우선순위: 1) 프로젝트 커스텀 → 2) Git 루트 원본 → 3) 설치된 프롬프트
 PROMPT_TEMPLATE="ai-ensemble/custom-prompts/review.md"
 SYSTEM_PROMPT="01-system-prompts/default_review.md"
-INSTALLED_PROMPT="${HOME}/.local/share/xv-ensemble/prompts/default_review.md"
 
-if [ ! -f "$PROMPT_TEMPLATE" ]; then
-    mkdir -p "$(dirname "$PROMPT_TEMPLATE")"
-    if [ -f "$SYSTEM_PROMPT" ]; then
-        cp "$SYSTEM_PROMPT" "$PROMPT_TEMPLATE"
-        echo "커스텀 프롬프트 생성: $SYSTEM_PROMPT → $PROMPT_TEMPLATE"
-    elif [ -f "$INSTALLED_PROMPT" ]; then
-        cp "$INSTALLED_PROMPT" "$PROMPT_TEMPLATE"
-        echo "커스텀 프롬프트 생성: $INSTALLED_PROMPT → $PROMPT_TEMPLATE"
-    else
-        echo "Error: 시스템 프롬프트를 찾을 수 없습니다."
-        echo "프로젝트 루트의 01-system-prompts/ 또는 install.sh를 먼저 실행해주세요."
-        exit 1
-    fi
-fi
+load_prompt_template "$PROMPT_TEMPLATE" "$SYSTEM_PROMPT" || exit 1
 
 PROMPT_FILE="${REPORT_DIR}/prompt.txt"
 
@@ -164,14 +110,8 @@ CLAUDE_MODEL=$(get_model_info claude)
 CODEX_MODEL=$(get_model_info codex)
 GEMINI_MODEL=$(get_model_info gemini)
 
-# 타임아웃 명령 감지 (macOS: gtimeout, Linux: timeout)
-TIMEOUT_CMD=""
-AI_TIMEOUT="${AI_TIMEOUT:-120}"
-if command -v timeout &> /dev/null; then
-    TIMEOUT_CMD="timeout ${AI_TIMEOUT}"
-elif command -v gtimeout &> /dev/null; then
-    TIMEOUT_CMD="gtimeout ${AI_TIMEOUT}"
-fi
+# 타임아웃 명령 감지
+TIMEOUT_CMD=$(get_timeout_cmd)
 
 # Claude, Codex, Gemini 병렬 실행
 echo "${CLAUDE_MODEL}, ${CODEX_MODEL}, ${GEMINI_MODEL} 실행 중..."
@@ -217,18 +157,19 @@ if [ $FAIL_COUNT -eq 3 ]; then
 fi
 
 # Validator 실행 (환경변수가 설정된 경우)
+# 보안: eval 대신 bash -c로 서브셸에서 실행하여 현재 셸 영향 차단
 VALIDATOR_FAIL=0
 if [ -n "${LINT_CMD:-}" ]; then
     echo "Lint 실행: $LINT_CMD"
-    eval "$LINT_CMD" || VALIDATOR_FAIL=1
+    bash -c "$LINT_CMD" || VALIDATOR_FAIL=1
 fi
 if [ -n "${TYPECHECK_CMD:-}" ]; then
     echo "타입체크 실행: $TYPECHECK_CMD"
-    eval "$TYPECHECK_CMD" || VALIDATOR_FAIL=1
+    bash -c "$TYPECHECK_CMD" || VALIDATOR_FAIL=1
 fi
 if [ -n "${TEST_CMD:-}" ]; then
     echo "테스트 실행: $TEST_CMD"
-    eval "$TEST_CMD" || VALIDATOR_FAIL=1
+    bash -c "$TEST_CMD" || VALIDATOR_FAIL=1
 fi
 
 if [ $VALIDATOR_FAIL -ne 0 ]; then
@@ -264,14 +205,6 @@ EOF
 echo "리포트 생성 완료: $REPORT_MD"
 
 # 에디터에서 리포트 열기
-if command -v antigravity &> /dev/null; then
-    antigravity "$REPORT_MD"
-elif command -v code &> /dev/null; then
-    code "$REPORT_MD"
-elif command -v xdg-open &> /dev/null; then
-    xdg-open "$REPORT_MD"
-else
-    open "$REPORT_MD"
-fi
+open_in_editor "$REPORT_MD"
 
 exit 0

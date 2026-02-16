@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# xv-common: xv-local과 xv-ensemble에서 공유하는 공통 함수
+
+# CLI 모델 버전 감지 함수
+# 우선순위: 1) 설정 파일에서 모델명 → 2) --version → 3) CLI 이름만
+get_model_info() {
+    local cli_name="$1"
+    local model_name=""
+
+    case "$cli_name" in
+        claude)
+            # ~/.claude/settings.json에서 model 필드 추출
+            if command -v python3 &> /dev/null && [ -f "$HOME/.claude/settings.json" ]; then
+                model_name=$(python3 -c "
+import json
+try:
+    with open('$HOME/.claude/settings.json') as f:
+        print(json.load(f).get('model', ''))
+except: pass
+" 2>/dev/null)
+            fi
+            ;;
+        codex)
+            # ~/.codex/config.toml에서 model 필드 추출
+            if [ -f "$HOME/.codex/config.toml" ]; then
+                model_name=$(grep '^model' "$HOME/.codex/config.toml" | head -1 | sed 's/model *= *"\(.*\)"/\1/')
+            fi
+            ;;
+        gemini)
+            # gemini는 설정에 모델명이 없으므로 아래 fallback 사용
+            ;;
+    esac
+
+    if [ -n "$model_name" ]; then
+        echo "${cli_name} (${model_name})"
+    else
+        # fallback: --version
+        local version_info=""
+        version_info=$("$cli_name" --version 2>/dev/null | head -1) || version_info=""
+        if [ -n "$version_info" ]; then
+            echo "${cli_name} (${version_info})"
+        else
+            echo "$cli_name"
+        fi
+    fi
+}
+
+# 프롬프트 템플릿 로드 함수
+# 우선순위: 1) 프로젝트 커스텀 → 2) Git 루트 원본 → 3) 설치된 프롬프트
+load_prompt_template() {
+    local custom_path="$1"
+    local system_path="$2"
+    local prompt_name
+    prompt_name=$(basename "$system_path")
+    local installed_path="${HOME}/.local/share/xv-ensemble/prompts/${prompt_name}"
+
+    if [ ! -f "$custom_path" ]; then
+        mkdir -p "$(dirname "$custom_path")"
+        if [ -f "$system_path" ]; then
+            cp "$system_path" "$custom_path"
+            echo "커스텀 프롬프트 생성: $system_path → $custom_path"
+        elif [ -f "$installed_path" ]; then
+            cp "$installed_path" "$custom_path"
+            echo "커스텀 프롬프트 생성: $installed_path → $custom_path"
+        else
+            echo "Error: 시스템 프롬프트를 찾을 수 없습니다."
+            echo "프로젝트 루트의 01-system-prompts/ 또는 install.sh를 먼저 실행해주세요."
+            return 1
+        fi
+    fi
+}
+
+# 타임아웃 명령 감지 (macOS: gtimeout, Linux: timeout)
+get_timeout_cmd() {
+    local seconds="${1:-${AI_TIMEOUT:-120}}"
+    if command -v timeout &> /dev/null; then
+        echo "timeout ${seconds}"
+    elif command -v gtimeout &> /dev/null; then
+        echo "gtimeout ${seconds}"
+    else
+        echo "경고: timeout/gtimeout 명령을 찾을 수 없습니다. AI 응답이 무한 대기할 수 있습니다." >&2
+        echo "macOS: brew install coreutils 로 설치하세요." >&2
+        echo ""
+    fi
+}
+
+# 에디터에서 파일 열기
+open_in_editor() {
+    local file_path="$1"
+    if command -v antigravity &> /dev/null; then
+        antigravity "$file_path"
+    elif command -v code &> /dev/null; then
+        code "$file_path"
+    elif command -v xdg-open &> /dev/null; then
+        xdg-open "$file_path"
+    else
+        open "$file_path"
+    fi
+}

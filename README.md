@@ -142,9 +142,9 @@ chmod +x install.sh
 If automatic installation doesn't work, copy the files manually:
 ```bash
 mkdir -p ~/.local/bin ~/.local/share/xv-ensemble/prompts
-cp 02-scripts/xv-local 02-scripts/xv-ensemble ~/.local/bin/
+cp 02-scripts/xv-common 02-scripts/xv-local 02-scripts/xv-ensemble ~/.local/bin/
 cp 01-system-prompts/* ~/.local/share/xv-ensemble/prompts/
-chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
+chmod +x ~/.local/bin/xv-common ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
 ### Editor Setup

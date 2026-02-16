@@ -142,9 +142,9 @@ chmod +x install.sh
 자동 설치가 안 될 경우, 직접 복사하세요.
 ```bash
 mkdir -p ~/.local/bin ~/.local/share/xv-ensemble/prompts
-cp 02-scripts/xv-local 02-scripts/xv-ensemble ~/.local/bin/
+cp 02-scripts/xv-common 02-scripts/xv-local 02-scripts/xv-ensemble ~/.local/bin/
 cp 01-system-prompts/* ~/.local/share/xv-ensemble/prompts/
-chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
+chmod +x ~/.local/bin/xv-common ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
 ### 에디터 설정
