@@ -37,10 +37,10 @@
 
 ### Step 2: 3대장 소환 (`Cmd + Option + Shift + V`)
 
-`plan.md` 파일을 열어둔 상태에서 단축키를 누르세요.
+`plan_request.md` 파일을 열어둔 상태에서 단축키를 누르세요.
 눈에 보이지 않지만, 백그라운드에서 **엄청난 일**이 일어납니다.
 
-1.  **폴더 생성**: `.ai-check/reports/20260216_140000/` (현재 시간)
+1.  **폴더 생성**: `ai-ensemble/reports/20260216_140000/` (현재 시간)
 2.  **프롬프트 저장**: `prompt.txt` (질문 내용 박제)
 3.  **병렬 실행**: Claude, Codex, Gemini가 동시에 달려들어 고민을 시작합니다.
 4.  **리포트 생성**: `report.md` 파일이 만들어지고 에디터에서 자동으로 열립니다.
@@ -118,9 +118,9 @@ chmod +x install.sh
 ### 수동 설치 (Manual)
 자동 설치가 안 될 경우, 직접 복사하세요.
 ```bash
-mkdir -p ~/.local/bin ~/.local/share/xv-ensemble/templates
-cp xv-local xv-ensemble ~/.local/bin/
-cp templates/* ~/.local/share/xv-ensemble/templates/
+mkdir -p ~/.local/bin ~/.local/share/xv-ensemble/prompts
+cp 02-scripts/xv-local 02-scripts/xv-ensemble ~/.local/bin/
+cp 01-system-prompts/* ~/.local/share/xv-ensemble/prompts/
 chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
@@ -139,8 +139,8 @@ chmod +x ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 
 ### 프롬프트 커스터마이징
 리뷰나 기획의 기준을 바꾸고 싶다면?
-- `templates/default_review.md` 파일을 수정하여 재설치하거나,
-- 프로젝트 내 `.ai-check/prompts/` 폴더에 복사해서 수정하세요.
+- `01-system-prompts/default_review.md` 파일을 수정하여 재설치하거나,
+- 프로젝트 내 `ai-ensemble/custom-prompts/` 폴더에 복사해서 수정하세요.
 
 ### Validator 연결
 코드 품질을 더 높이고 싶다면 Linter나 Test를 자동 실행할 수 있습니다.

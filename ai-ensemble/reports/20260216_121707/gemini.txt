@@ -1,0 +1,64 @@
+**Concise Summary**
+
+해당 파일은 코드가 아닌 프로젝트 요구사항 명세서입니다. AI 뉴스 수집기(RSS 피드 수집, 요약, 태깅)를 Python, FastAPI, React 기술 스택으로 구축하는 목표를 명확하게 정의하고 있습니다.
+
+명세서에 포함된 질문(상세 구현 계획 요청)에 대한 답변을 아래 "Actionable Items"에 제시합니다.
+
+**Actionable Items**
+
+요청하신 내용을 바탕으로 제안하는 데이터베이스 스키마와 API 명세는 다음과 같습니다.
+
+### 1. 데이터베이스 스키마 (SQLite / PostgreSQL 기준)
+
+**`feeds` 테이블**
+- RSS 피드 소스 정보를 저장합니다.
+- `id`: INTEGER, PRIMARY KEY, AUTOINCREMENT
+- `name`: TEXT, NOT NULL (예: "Google AI Blog")
+- `url`: TEXT, NOT NULL, UNIQUE (피드의 고유 URL)
+- `last_fetched_at`: DATETIME (마지막으로 피드를 수집한 시간)
+
+**`articles` 테이블**
+- 수집된 개별 뉴스 기사를 저장합니다.
+- `id`: INTEGER, PRIMARY KEY, AUTOINCREMENT
+- `feed_id`: INTEGER, FOREIGN KEY (`feeds.id`)
+- `title`: TEXT, NOT NULL (기사 제목)
+- `link`: TEXT, NOT NULL, UNIQUE (기사 원문 링크)
+- `content`: TEXT (기사 원문 내용, 선택 사항)
+- `summary`: TEXT (AI가 요약한 내용)
+- `published_at`: DATETIME (기사 발행일)
+- `created_at`: DATETIME, DEFAULT CURRENT_TIMESTAMP (레코드 생성일)
+
+**`tags` 테이블**
+- AI가 생성하거나 사용자가 정의한 태그를 저장합니다.
+- `id`: INTEGER, PRIMARY KEY, AUTOINCREMENT
+- `name`: TEXT, NOT NULL, UNIQUE (예: "LLM", "Image Recognition")
+
+**`article_tags` 테이블 (Many-to-Many 관계)**
+- 기사와 태그를 연결합니다.
+- `article_id`: INTEGER, FOREIGN KEY (`articles.id`)
+- `tag_id`: INTEGER, FOREIGN KEY (`tags.id`)
+- PRIMARY KEY (`article_id`, `tag_id`)
+
+### 2. API 명세 (FastAPI 기준)
+
+**기본 엔드포인트: `/api`**
+
+**Articles**
+- `GET /articles/`: 기사 목록을 페이지네이션으로 조회합니다.
+  - 쿼리 파라미터: `?page=1&size=20&tag=LLM`
+  - 응답: 기사 목록(요약 포함), 전체 페이지 수
+- `GET /articles/{article_id}`: 특정 기사의 상세 정보를 조회합니다.
+  - 응답: 기사 상세 정보(원문 포함)
+
+**Feeds**
+- `GET /feeds/`: 등록된 RSS 피드 소스 목록을 조회합니다.
+- `POST /feeds/`: 새로운 RSS 피드를 등록합니다.
+  - 요청 본문: `{ "name": "New AI Blog", "url": "https://example.com/rss" }`
+- `DELETE /feeds/{feed_id}`: 등록된 피드를 삭제합니다.
+
+**Tags**
+- `GET /tags/`: 전체 태그 목록과 각 태그에 속한 기사 수를 조회합니다.
+
+**백그라운드 작업**
+- RSS 피드 수집, 기사 요약, 태깅은 주기적인 백그라운드 작업(예: `FastAPI-Scheduler`, `Celery`)으로 처리하는 것을 권장합니다.
+- (선택) `POST /admin/fetch-all`: 모든 피드를 강제로 즉시 수집하는 관리자용 API를 만들 수 있습니다.

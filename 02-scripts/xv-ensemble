@@ -7,7 +7,7 @@ REPORT_FILE="$1"
 
 if [ -z "$REPORT_FILE" ]; then
     echo "Usage: $0 <path_to_report.md>"
-    echo "Example: $0 .ai-check/reports/20240101_120000/report.md"
+    echo "Example: $0 ai-ensemble/reports/20240101_120000/report.md"
     exit 1
 fi
 
@@ -20,7 +20,7 @@ REPORT_CONTENT=$(cat "$REPORT_FILE")
 REPORT_DIR=$(dirname "$REPORT_FILE")
 
 # Prepare ensemble prompt
-PROMPT_TEMPLATE=".ai-check/prompts/ensemble.md"
+PROMPT_TEMPLATE="ai-ensemble/custom-prompts/ensemble.md"
 if [ ! -f "$PROMPT_TEMPLATE" ]; then
     echo "Error: Ensemble prompt template not found at $PROMPT_TEMPLATE"
     exit 1
@@ -73,8 +73,10 @@ cat "$PROMPT_FILE" | gemini -o text > "$ENSEMBLE_OUTPUT"
 if [ $? -eq 0 ]; then
     echo "Ensemble complete: $ENSEMBLE_OUTPUT"
     
-    # Automatically open the result
-    if command -v code &> /dev/null; then
+    # Automatically open the result in the user's editor
+    if command -v antigravity &> /dev/null; then
+        antigravity "$ENSEMBLE_OUTPUT"
+    elif command -v code &> /dev/null; then
         code "$ENSEMBLE_OUTPUT"
     else
         open "$ENSEMBLE_OUTPUT"

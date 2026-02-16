@@ -1,0 +1,27 @@
+**Concise Summary**
+`plan_request.md`는 방향성은 좋지만, 바로 구현 가능한 명세 수준으로는 부족합니다. 특히 보안(SSRF/XSS/인증), 정합성(중복 처리), 성능(수집·요약 파이프라인) 기준이 빠져 있어 재작업 리스크가 큽니다.
+
+**Actionable Items**
+1. [High][Security] `plan_request.md:4` RSS 수집 보안 요구가 없습니다.  
+   Action: 피드 URL allowlist, `http/https` 제한, private IP/localhost 차단, timeout/response size limit, redirect 제한을 명시하세요.
+
+2. [High][Security] `plan_request.md:7` API 인증/권한 모델이 없습니다.  
+   Action: JWT/OAuth2 중 하나를 선택하고, 관리자/일반 사용자 권한(RBAC)과 보호 엔드포인트를 정의하세요.
+
+3. [High][Correctness] `plan_request.md:4` 기사 중복 처리 기준이 없습니다.  
+   Action: `guid`/`link`/`published_at` 기반 unique 키와 upsert 정책을 DB 스키마에 포함하세요.
+
+4. [Medium][Correctness] `plan_request.md:7` API 명세 범위가 모호합니다.  
+   Action: 엔드포인트 목록, 요청/응답 스키마, 에러 코드, pagination/sort/filter 규칙을 구체화하세요.
+
+5. [Medium][Performance] `plan_request.md:4` 수집·요약 처리 모델(동기/비동기)이 없습니다.  
+   Action: 워커+큐 기반 처리, 재시도/backoff, 처리량/지연 목표(SLO)를 명시하세요.
+
+6. [Medium][Security] `plan_request.md:4` React 렌더링 시 XSS 대응 요구가 없습니다.  
+   Action: 본문 HTML sanitization 정책(서버/클라이언트)과 허용 태그 정책을 정의하세요.
+
+7. [Low][Style] `plan_request.md:3` 기술 스택 버전/환경 정보가 없습니다.  
+   Action: Python/FastAPI/React 버전, DB 종류, 실행 환경(dev/stage/prod)을 고정하세요.
+
+8. [Low][Correctness] `plan_request.md:7` 테스트 기준이 없습니다.  
+   Action: RSS 파서 단위 테스트, API 계약 테스트, E2E(수집→요약→태깅→조회) 시나리오를 요구사항에 추가하세요.

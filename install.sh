@@ -2,7 +2,7 @@
 
 # Configuration
 INSTALL_DIR="${HOME}/.local/bin"
-TEMPLATE_DIR="${HOME}/.local/share/xv-ensemble/templates"
+PROMPT_DIR="${HOME}/.local/share/xv-ensemble/prompts"
 
 echo "🚀 Installing Local AI Ensemble Validation Tools..."
 
@@ -16,20 +16,20 @@ fi
 
 # 1. Create Directories
 mkdir -p "$INSTALL_DIR"
-mkdir -p "$TEMPLATE_DIR"
+mkdir -p "$PROMPT_DIR"
 
 # 2. Copy Scripts
 echo "- Copying scripts to $INSTALL_DIR..."
-cp xv-local "$INSTALL_DIR/" # Should create symlink instead? No, copy for portability.
-cp xv-ensemble "$INSTALL_DIR/"
+cp 02-scripts/xv-local "$INSTALL_DIR/"
+cp 02-scripts/xv-ensemble "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/xv-local" "$INSTALL_DIR/xv-ensemble"
 
-# 3. Copy Templates
-echo "- Copying templates to $TEMPLATE_DIR..."
-cp templates/* "$TEMPLATE_DIR/" # Copy all templates
+# 3. Copy Prompts
+echo "- Copying prompts to $PROMPT_DIR..."
+cp 01-system-prompts/* "$PROMPT_DIR/"
 
 echo ""
 echo "✅ Installation Complete!"
 echo ""
 echo "Please ensure $INSTALL_DIR is in your PATH."
-echo "Tip: Add 'export PATH=$HOME/.local/bin:$PATH' to your ~/.zshrc or ~/.bashrc if needed."
+echo "Tip: Add 'export PATH=$HOME/.local/bin:\$PATH' to your ~/.zshrc or ~/.bashrc if needed."
