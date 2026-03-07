@@ -177,15 +177,29 @@ run_with_timeout() {
 }
 
 # 에디터에서 파일 열기
-# 우선순위: Antigravity IDE → VS Code → xdg-open → open
+# 우선순위: Antigravity IDE (macOS open -a) → antigravity CLI → VS Code → xdg-open → open
 open_in_editor() {
     local file_path="$1"
-    # Antigravity IDE: PATH에 없을 수 있으므로 절대경로도 확인
+
+    # macOS: 'open -a' 방식이 가장 신뢰성 높음 (PATH/IPC 환경 무관)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if [ -d "/Applications/Antigravity.app" ]; then
+            open -a "Antigravity" "$file_path"
+            return
+        fi
+        # Antigravity가 없으면 VS Code 시도
+        if [ -d "/Applications/Visual Studio Code.app" ]; then
+            open -a "Visual Studio Code" "$file_path"
+            return
+        fi
+    fi
+
+    # Linux 및 macOS fallback: CLI 탐색
     local ag_path="${HOME}/.antigravity/antigravity/bin/antigravity"
-    if command -v antigravity &> /dev/null; then
-        antigravity "$file_path"
-    elif [ -x "$ag_path" ]; then
+    if [ -x "$ag_path" ]; then
         "$ag_path" "$file_path"
+    elif command -v antigravity &> /dev/null; then
+        antigravity "$file_path"
     elif command -v code &> /dev/null; then
         code "$file_path"
     elif command -v xdg-open &> /dev/null; then
