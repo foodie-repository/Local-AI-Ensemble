@@ -37,9 +37,11 @@
 ```
 > **장점**: 파일로 저장해두면 Git으로 버전 관리가 가능합니다. 질문을 계속 다듬을 수 있죠.
 
-### Step 2: 3대장 소환 (`Cmd + Option + Shift + V`)
+### Step 2: 3대장 소환 (`Cmd + Option + V`)
 
-`plan_request.md` 파일을 열어둔 상태에서 단축키를 누르세요.
+`plan_request.md`가 있는 프로젝트 폴더에서 단축키를 누르세요.
+> **Tip**: 특정 파일을 리뷰하고 싶다면? 해당 파일을 열고 `Cmd + Option + Shift + V`를 누르세요.
+
 눈에 보이지 않지만, 백그라운드에서 **엄청난 일**이 일어납니다.
 
 1.  **폴더 생성**: `ai-ensemble/reports/20260216_140000/` (현재 시간)
@@ -155,8 +157,8 @@ chmod +x ~/.local/bin/xv-common ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 2. **Keybindings**: 단축키 매핑 (예: `keybindings.json`)
 
 **단축키 목록 (권장)**:
-- `Cmd + Opt + V`: Staged 변경사항 검증 (Commit 전 확인용)
-- `Cmd + Opt + Shift + V`: 현재 파일 검증/질문 (기획/설계용)
+- `Cmd + Opt + V`: `plan_request.md` 리뷰 (프로젝트 루트에서 자동 감지)
+- `Cmd + Opt + Shift + V`: 현재 열린 파일 리뷰
 - `Cmd + Opt + E`: 리포트 앙상블 (결론 도출용)
 
 ---

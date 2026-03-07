@@ -37,9 +37,11 @@ Based on these requirements, create a detailed implementation plan (DB schema, A
 ```
 > **Advantage**: Saving as a file enables Git version control. You can keep refining your questions over time.
 
-### Step 2: Summon the Big Three (`Cmd + Option + Shift + V`)
+### Step 2: Summon the Big Three (`Cmd + Option + V`)
 
-With the `plan_request.md` file open, press the keyboard shortcut.
+From any project folder that has a `plan_request.md`, press the keyboard shortcut.
+> **Tip**: Want to review a specific file instead? Open it and press `Cmd + Option + Shift + V`.
+
 Behind the scenes, **incredible things** happen invisibly:
 
 1.  **Folder creation**: `ai-ensemble/reports/20260216_140000/` (current timestamp)
@@ -155,8 +157,8 @@ Configure Tasks and keyboard shortcuts for your editor (Antigravity IDE, VS Code
 2. **Keybindings**: Map keyboard shortcuts (e.g., `keybindings.json`)
 
 **Recommended Shortcuts**:
-- `Cmd + Opt + V`: Validate staged changes (pre-commit check)
-- `Cmd + Opt + Shift + V`: Validate/ask about current file (for planning/design)
+- `Cmd + Opt + V`: Review `plan_request.md` (auto-detected from project root)
+- `Cmd + Opt + Shift + V`: Review current open file
 - `Cmd + Opt + E`: Ensemble report (for reaching conclusions)
 
 ---
