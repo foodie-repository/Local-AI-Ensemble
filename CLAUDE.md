@@ -10,6 +10,7 @@ local-ai-ensemble/
 │   ├── default_review.md       #   코드 리뷰용 프롬프트
 │   └── ensemble.md             #   앙상블 종합용 프롬프트
 ├── 02-scripts/                 # 실행 스크립트
+│   ├── xv-common               #   공통 함수 (에디터, 타임아웃 등)
 │   ├── xv-local                #   3대 AI 병렬 실행 → report.md 생성
 │   └── xv-ensemble             #   report.md → final_decision.md 앙상블
 ├── ai-ensemble/                # 런타임 생성 폴더 (Git 추적 O)

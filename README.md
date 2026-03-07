@@ -103,6 +103,7 @@ local-ai-ensemble/
 │   ├── default_review.md     #   For code review
 │   └── ensemble.md           #   For ensemble synthesis
 ├── 02-scripts/               # Execution scripts
+│   ├── xv-common             #   Shared functions (editor, timeout, etc.)
 │   ├── xv-local              #   Parallel execution of 3 AIs
 │   └── xv-ensemble           #   Report ensemble
 ├── ai-ensemble/              # Runtime output (auto-generated)
@@ -148,7 +149,7 @@ chmod +x ~/.local/bin/xv-common ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
 ### Editor Setup
-Configure Tasks and keyboard shortcuts for your editor (VS Code, Antigravity IDE, etc.).
+Configure Tasks and keyboard shortcuts for your editor (Antigravity IDE, VS Code, etc.).
 
 1. **Tasks**: Register tasks to run the scripts (e.g., `tasks.json`)
 2. **Keybindings**: Map keyboard shortcuts (e.g., `keybindings.json`)

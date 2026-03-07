@@ -103,6 +103,7 @@ local-ai-ensemble/
 │   ├── default_review.md     #   코드 리뷰용
 │   └── ensemble.md           #   앙상블 종합용
 ├── 02-scripts/               # 실행 스크립트
+│   ├── xv-common             #   공통 함수 (에디터, 타임아웃 등)
 │   ├── xv-local              #   3대 AI 병렬 실행
 │   └── xv-ensemble           #   리포트 앙상블
 ├── ai-ensemble/              # 실행 결과 (자동 생성)
@@ -148,7 +149,7 @@ chmod +x ~/.local/bin/xv-common ~/.local/bin/xv-local ~/.local/bin/xv-ensemble
 ```
 
 ### 에디터 설정
-사용하는 에디터(VS Code, Antigravity IDE 등)에 맞게 Task와 단축키를 설정하세요.
+사용하는 에디터(Antigravity IDE, VS Code 등)에 맞게 Task와 단축키를 설정하세요.
 
 1. **Tasks**: 스크립트를 실행할 Task 등록 (예: `tasks.json`)
 2. **Keybindings**: 단축키 매핑 (예: `keybindings.json`)
