@@ -97,13 +97,13 @@ get_timeout_cmd > /dev/null
 # Claude, Codex, Gemini 병렬 실행
 echo "${CLAUDE_MODEL}, ${CODEX_MODEL}, ${GEMINI_MODEL} 실행 중..."
 
-(unset CLAUDECODE; run_with_timeout "${AI_TIMEOUT:-120}" claude -p - < "$PROMPT_FILE" > "${REPORT_DIR}/claude.txt" 2>"${REPORT_DIR}/claude.err") &
+(unset CLAUDECODE; run_with_timeout "${AI_TIMEOUT:-600}" claude -p - < "$PROMPT_FILE" > "${REPORT_DIR}/claude.txt" 2>"${REPORT_DIR}/claude.err") &
 CLAUDE_PID=$!
 
-(run_with_timeout "${AI_TIMEOUT:-120}" codex exec - < "$PROMPT_FILE" > "${REPORT_DIR}/codex.txt" 2>"${REPORT_DIR}/codex.err") &
+(run_with_timeout "${AI_TIMEOUT:-600}" codex exec - < "$PROMPT_FILE" > "${REPORT_DIR}/codex.txt" 2>"${REPORT_DIR}/codex.err") &
 CODEX_PID=$!
 
-(run_with_timeout "${AI_TIMEOUT:-120}" gemini -o text < "$PROMPT_FILE" > "${REPORT_DIR}/gemini.txt" 2>"${REPORT_DIR}/gemini.err") &
+(run_with_timeout "${AI_TIMEOUT:-600}" gemini -o text < "$PROMPT_FILE" > "${REPORT_DIR}/gemini.txt" 2>"${REPORT_DIR}/gemini.err") &
 GEMINI_PID=$!
 
 FAIL_COUNT=0

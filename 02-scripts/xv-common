@@ -151,7 +151,7 @@ get_timeout_bin() {
 
 # 타임아웃 명령 감지 (macOS: gtimeout, Linux: timeout)
 get_timeout_cmd() {
-    local seconds="${1:-${AI_TIMEOUT:-120}}"
+    local seconds="${1:-${AI_TIMEOUT:-600}}"
     local timeout_bin=""
 
     if timeout_bin=$(get_timeout_bin); then
@@ -165,7 +165,7 @@ get_timeout_cmd() {
 
 # 타임아웃 지원 여부에 따라 명령을 직접 실행하거나 timeout으로 감싼다.
 run_with_timeout() {
-    local seconds="${1:-${AI_TIMEOUT:-120}}"
+    local seconds="${1:-${AI_TIMEOUT:-600}}"
     shift
     local timeout_bin=""
 
