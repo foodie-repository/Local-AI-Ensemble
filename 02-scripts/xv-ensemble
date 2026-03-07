@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure we are in the git root
-cd "$(git rev-parse --show-toplevel)" || exit 1
-
 # 공통 함수 로드
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/xv-common"
+
+# 프로젝트 루트로 이동 (plan_request.md가 있는 CWD 우선)
+cd "$(get_project_root)"
 
 REPORT_FILE="${1:-}"
 
@@ -35,41 +35,14 @@ load_prompt_template "$PROMPT_TEMPLATE" "$SYSTEM_PROMPT" || exit 1
 PROMPT_FILE="${REPORT_DIR}/ensemble_prompt.txt"
 
 # 플레이스홀더 치환
-export REPORT_CONTENT
 CONTEXT_ARG="AI 리뷰 앙상블"
-export CONTEXT_ARG
 
-if command -v python3 &> /dev/null; then
-    if python3 -c "
-import sys
-import os
-
-template_path = '$PROMPT_TEMPLATE'
-context_arg = os.environ.get('CONTEXT_ARG', '')
-report_content = os.environ.get('REPORT_CONTENT', '')
-
-try:
-    with open(template_path, 'r') as f:
-        template = f.read()
-
-    output = template.replace('{{CONTEXT_ARG}}', context_arg).replace('{{REPORT_CONTENT}}', report_content)
-
-    with open('$PROMPT_FILE', 'w') as f:
-        f.write(output)
-except Exception as e:
-    sys.exit(1)
-"; then
-        : # 템플릿 처리 성공
-    else
-        echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
-        cat <<EOF > "$PROMPT_FILE"
-아래 AI 리뷰들을 종합하여 최종 결정을 내려주세요.
-
-리뷰 내용:
-$REPORT_CONTENT
-EOF
-    fi
-else
+if ! render_template_file \
+    "$PROMPT_TEMPLATE" \
+    "$PROMPT_FILE" \
+    "{{CONTEXT_ARG}}" "$CONTEXT_ARG" \
+    "{{REPORT_CONTENT}}" "$REPORT_CONTENT"; then
+    echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
     cat <<EOF > "$PROMPT_FILE"
 아래 AI 리뷰들을 종합하여 최종 결정을 내려주세요.
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Ensure we are in the git root
-cd "$(git rev-parse --show-toplevel)" || exit 1
-
 # 공통 함수 로드
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "${SCRIPT_DIR}/xv-common"
+
+# 프로젝트 루트로 이동 (plan_request.md가 있는 CWD 우선)
+cd "$(get_project_root)"
 
 # Timestamp for report directory
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
@@ -30,12 +30,13 @@ if [[ "$CONTEXT_ARG" == *"파일"* && "$CONTEXT_ARG" == *"리뷰"* ]]; then
     fi
 else
     # Staged 변경사항 검증, 없으면 Working tree 검증
+    # -- . 으로 현재 프로젝트 디렉토리 범위만 검증
     echo "Staged 변경사항 검증 중..."
-    if git diff --cached --quiet; then
+    if git diff --cached --quiet -- .; then
         echo "Staged 변경사항 없음. Working tree 확인 중..."
-        DIFF_CONTENT=$(git diff)
+        DIFF_CONTENT=$(git diff -- .)
     else
-        DIFF_CONTENT=$(git diff --cached)
+        DIFF_CONTENT=$(git diff --cached -- .)
     fi
     
     if [ -z "$DIFF_CONTENT" ]; then
@@ -55,38 +56,12 @@ load_prompt_template "$PROMPT_TEMPLATE" "$SYSTEM_PROMPT" || exit 1
 PROMPT_FILE="${REPORT_DIR}/prompt.txt"
 
 # 플레이스홀더 치환 (python3 사용, 없으면 fallback)
-export CONTEXT_ARG DIFF_CONTENT
-if command -v python3 &> /dev/null; then
-    if python3 -c "
-import sys
-import os
-
-template_path = '$PROMPT_TEMPLATE'
-context_arg = os.environ.get('CONTEXT_ARG', '')
-diff_content = os.environ.get('DIFF_CONTENT', '')
-
-try:
-    with open(template_path, 'r') as f:
-        template = f.read()
-
-    # Simple replacement
-    output = template.replace('{{CONTEXT_ARG}}', context_arg).replace('{{DIFF_CONTENT}}', diff_content)
-
-    with open('$PROMPT_FILE', 'w') as f:
-        f.write(output)
-except Exception as e:
-    sys.exit(1)
-"; then
-        : # 템플릿 처리 성공
-    else
-        echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
-        cat <<EOF > "$PROMPT_FILE"
-리뷰 컨텍스트: $CONTEXT_ARG
-코드:
-$DIFF_CONTENT
-EOF
-    fi
-else
+if ! render_template_file \
+    "$PROMPT_TEMPLATE" \
+    "$PROMPT_FILE" \
+    "{{CONTEXT_ARG}}" "$CONTEXT_ARG" \
+    "{{DIFF_CONTENT}}" "$DIFF_CONTENT"; then
+    echo "템플릿 처리 실패. 기본 형식으로 생성합니다."
     cat <<EOF > "$PROMPT_FILE"
 리뷰 컨텍스트: $CONTEXT_ARG
 코드:
@@ -110,19 +85,19 @@ CLAUDE_MODEL=$(get_model_info claude)
 CODEX_MODEL=$(get_model_info codex)
 GEMINI_MODEL=$(get_model_info gemini)
 
-# 타임아웃 명령 감지
-TIMEOUT_CMD=$(get_timeout_cmd)
+# 타임아웃 미지원 환경에서는 경고만 출력하고 그대로 진행
+get_timeout_cmd > /dev/null
 
 # Claude, Codex, Gemini 병렬 실행
 echo "${CLAUDE_MODEL}, ${CODEX_MODEL}, ${GEMINI_MODEL} 실행 중..."
 
-(unset CLAUDECODE; ${TIMEOUT_CMD} claude -p - < "$PROMPT_FILE" > "${REPORT_DIR}/claude.txt" 2>"${REPORT_DIR}/claude.err") &
+(unset CLAUDECODE; run_with_timeout "${AI_TIMEOUT:-120}" claude -p - < "$PROMPT_FILE" > "${REPORT_DIR}/claude.txt" 2>"${REPORT_DIR}/claude.err") &
 CLAUDE_PID=$!
 
-(${TIMEOUT_CMD} codex exec - < "$PROMPT_FILE" > "${REPORT_DIR}/codex.txt" 2>"${REPORT_DIR}/codex.err") &
+(run_with_timeout "${AI_TIMEOUT:-120}" codex exec - < "$PROMPT_FILE" > "${REPORT_DIR}/codex.txt" 2>"${REPORT_DIR}/codex.err") &
 CODEX_PID=$!
 
-(${TIMEOUT_CMD} gemini -o text < "$PROMPT_FILE" > "${REPORT_DIR}/gemini.txt" 2>"${REPORT_DIR}/gemini.err") &
+(run_with_timeout "${AI_TIMEOUT:-120}" gemini -o text < "$PROMPT_FILE" > "${REPORT_DIR}/gemini.txt" 2>"${REPORT_DIR}/gemini.err") &
 GEMINI_PID=$!
 
 FAIL_COUNT=0

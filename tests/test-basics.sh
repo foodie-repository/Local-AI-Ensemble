@@ -65,17 +65,43 @@ source 02-scripts/xv-common
 
 assert_ok "get_model_info 함수 존재" "type get_model_info"
 assert_ok "load_prompt_template 함수 존재" "type load_prompt_template"
+assert_ok "render_template_file 함수 존재" "type render_template_file"
 assert_ok "get_timeout_cmd 함수 존재" "type get_timeout_cmd"
+assert_ok "run_with_timeout 함수 존재" "type run_with_timeout"
 assert_ok "open_in_editor 함수 존재" "type open_in_editor"
 
 # get_model_info 반환값 테스트 (CLI가 없어도 이름은 반환해야 함)
 RESULT=$(get_model_info "nonexistent_cli" 2>/dev/null || echo "nonexistent_cli")
 assert_ok "get_model_info: 없는 CLI도 이름 반환" "[ -n '$RESULT' ]"
 
+# get_project_root 상위 디렉터리 탐색 테스트
+ROOT_TEST_DIR=$(mktemp -d)
+mkdir -p "${ROOT_TEST_DIR}/project/nested"
+touch "${ROOT_TEST_DIR}/project/plan_request.md"
+ROOT_RESULT=$(cd "${ROOT_TEST_DIR}/project/nested" && get_project_root)
+assert_ok "get_project_root: 상위 plan_request.md 탐색" "[ '$ROOT_RESULT' = '${ROOT_TEST_DIR}/project' ]"
+rm -rf "$ROOT_TEST_DIR"
+
+# render_template_file 테스트
+TEMPLATE_TEST_DIR=$(mktemp -d)
+TEMPLATE_FILE="${TEMPLATE_TEST_DIR}/template.txt"
+OUTPUT_FILE="${TEMPLATE_TEST_DIR}/output.txt"
+printf 'Hello {{NAME}} from {{PLACE}}\n' > "$TEMPLATE_FILE"
+if command -v python3 &> /dev/null; then
+    render_template_file "$TEMPLATE_FILE" "$OUTPUT_FILE" "{{NAME}}" "Codex" "{{PLACE}}" "LXV"
+    assert_ok "render_template_file: 플레이스홀더 치환" "grep -q '^Hello Codex from LXV$' '$OUTPUT_FILE'"
+else
+    assert_fail "render_template_file: python3 없으면 실패" "render_template_file '$TEMPLATE_FILE' '$OUTPUT_FILE' '{{NAME}}' 'Codex'"
+fi
+rm -rf "$TEMPLATE_TEST_DIR"
+
 # get_timeout_cmd 테스트
 TIMEOUT_RESULT=$(get_timeout_cmd 60)
 # timeout 또는 gtimeout이 있으면 값이 있고, 없으면 빈 문자열
 assert_ok "get_timeout_cmd: 정상 반환" "true"
+
+TIMEOUT_RUN_RESULT=$(run_with_timeout 1 printf "ok")
+assert_ok "run_with_timeout: 명령 실행" "[ '$TIMEOUT_RUN_RESULT' = 'ok' ]"
 
 # ── 4. 프롬프트 템플릿 검증 ──
 echo ""
